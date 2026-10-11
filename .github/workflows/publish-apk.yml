@@ -10,6 +10,8 @@ on:
 jobs:
   gradle:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
     - name: checkout code
       uses: actions/checkout@v7
