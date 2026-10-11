@@ -1,5 +1,9 @@
 package com.android.messaging.ui.conversation.messages.ui.text
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.net.Uri
 import android.os.SystemClock
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -103,6 +107,16 @@ internal fun ConversationMessageText(
             links = links,
             linkStyle = linkStyle,
             onExternalUriClick = { uri ->
+                val telPrefix = "tel:"
+                if (uri.startsWith(telPrefix)) {
+                    val originalText = Uri.decode(uri.substring(telPrefix.length)).replace(" ", "")
+                    if (IntRange(6, 8).contains(originalText.length) && originalText.toDoubleOrNull() != null) {
+                        val clipboard = applicationContext.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        val clip = ClipData.newPlainText("SMS 2FA code", originalText)
+                        clipboard.setPrimaryClip(clip)
+                        return@buildConversationLinkedAnnotatedString
+                    }
+                }
                 if (shouldSuppressConversationTextLinkClick(
                         suppressUntilUptimeMillis = suppressLinkClickUntilUptimeMillis.longValue,
                     )
