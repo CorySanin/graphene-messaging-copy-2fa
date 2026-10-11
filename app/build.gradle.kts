@@ -54,6 +54,7 @@ android {
     namespace = "com.android.messaging"
 
     defaultConfig {
+        applicationId = "dev.sanin.android.messaging"
         versionCode = 20000000 + 16
         versionName = "16"
         minSdk = 36
@@ -137,7 +138,7 @@ android {
 
         getByName("debug") {
             applicationIdSuffix = ".debug"
-            resValue("string", "app_name", "Messaging d")
+            resValue("string", "app_name", "Messaging Fork")
             enableUnitTestCoverage = true
             enableAndroidTestCoverage = true
         }
@@ -146,7 +147,7 @@ android {
             initWith(getByName("release"))
             applicationIdSuffix = ".debug"
             matchingFallbacks += listOf("release")
-            resValue("string", "app_name", "Messaging d")
+            resValue("string", "app_name", "Messaging Fork")
             signingConfig = signingConfigs.getByName("debug")
         }
     }
