@@ -391,4 +391,14 @@ public class UIIntentsImpl extends UIIntents {
         intent.setIdentifier(conversationId);
         return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_IMMUTABLE);
     }
+
+    @Override
+    public PendingIntent getPendingIntentForCopyingOTP(Context context, String conversationId, String otp) {
+        final Intent intent = new Intent(context, ConversationReadReceiver.class);
+        intent.setAction(ACTION_MESSAGE_COPY_OTP);
+        intent.putExtra(UI_INTENT_EXTRA_CONVERSATION_ID, conversationId);
+        intent.putExtra(UI_INTENT_EXTRA_OTP, otp);
+        intent.setIdentifier(conversationId);
+        return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+    }
 }

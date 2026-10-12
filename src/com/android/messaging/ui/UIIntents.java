@@ -37,6 +37,7 @@ public abstract class UIIntents {
 
     // Intent extras
     public static final String UI_INTENT_EXTRA_CONVERSATION_ID = "conversation_id";
+    public static final String UI_INTENT_EXTRA_OTP = "conversation_otp";
 
     // Sending draft data (from share intent / message forwarding) to the ConversationActivity.
     public static final String UI_INTENT_EXTRA_DRAFT_DATA = "draft_data";
@@ -82,6 +83,7 @@ public abstract class UIIntents {
     public static final String UI_INTENT_EXTRA_MESSAGE_ID = "message_id";
 
     public static final String ACTION_MESSAGE_READ = "com.android.messaging.action.MESSAGE_READ";
+    public static final String ACTION_MESSAGE_COPY_OTP = "com.android.messaging.action.MESSAGE_COPY_OTP";
 
     public abstract void launchConversationListActivity(final Context context);
 
@@ -235,5 +237,8 @@ public abstract class UIIntents {
      */
     public abstract PendingIntent getPendingIntentForMarkingAsRead(
             final Context context, final String conversationId);
+
+    public abstract PendingIntent getPendingIntentForCopyingOTP(
+            final Context context, final String conversationId, final String otp);
 
 }

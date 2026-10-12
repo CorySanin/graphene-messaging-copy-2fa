@@ -16,6 +16,8 @@
 
 package com.android.messaging.datamodel;
 
+import static com.android.messaging.ui.conversation.messages.ui.text.ConversationMessageTextLinkExtractorKt.extractConversationTextLinks;
+
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.content.Context;
@@ -56,6 +58,7 @@ import com.android.messaging.datamodel.media.UriImageRequestDescriptor;
 import com.android.messaging.sms.MmsSmsUtils;
 import com.android.messaging.sms.MmsUtils;
 import com.android.messaging.ui.UIIntents;
+import com.android.messaging.ui.conversation.messages.model.text.ConversationTextLink;
 import com.android.messaging.util.Assert;
 import com.android.messaging.util.AvatarUriUtil;
 import com.android.messaging.util.LogUtil;
@@ -78,6 +81,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+
+import kotlin.ranges.IntRange;
 
 /**
  * Handle posting, updating and removing all conversation notifications.<p>
@@ -108,6 +113,8 @@ public class BugleNotifications {
     private static final String SMS_NOTIFICATION_TAG = ":sms:";
     private static final String SMS_ERROR_NOTIFICATION_TAG = ":error:";
     public static final String SMS_OVERFLOW_NOTIFICATION_TAG = ":sms:overflow:";
+
+    private static final String TEL_URI_PREFIX = "tel:";
 
     /**
      * Upper bound on the number of {@link Person} entries attached to a conversation notification.
@@ -441,6 +448,16 @@ public class BugleNotifications {
         }
     }
 
+    static String getOtpToken(final String body) {
+        final Context context = Factory.get().getApplicationContext();
+        return extractConversationTextLinks(context, body).stream()
+                .map(ConversationTextLink::getUrl)
+                .filter(url -> url.startsWith(TEL_URI_PREFIX))
+                .map(url -> Uri.decode(url.substring(TEL_URI_PREFIX.length())).replace(" ", ""))
+                .filter(url -> new IntRange(6, 8).contains(url.length()))
+                .findFirst().orElse(null);
+    }
+
     @VisibleForTesting
     static void processAndSend(final MessageNotificationState state, final Conversation conversation) {
         final Context context = Factory.get().getApplicationContext();
@@ -493,6 +510,7 @@ public class BugleNotifications {
         final Map<String, Person> peopleByKey = new HashMap<>();
         final List<MessageNotificationState.MessageLineInfo> newLineInfos = new ArrayList<>();
         List<MessageNotificationState.MessageLineInfo> reversedLineInfos = conversation.mLineInfos.reversed();
+        final String otp = getOtpToken(reversedLineInfos.getFirst().mText.toString());
         for (MessageNotificationState.MessageLineInfo messageLineInfo : reversedLineInfos) {
             // Don't repeat messages by checking the timestamp
             if (messageLineInfo.mTimestamp <= oldestExistingTimestamp) {
@@ -540,26 +558,36 @@ public class BugleNotifications {
                         context.getString(R.string.mark_as_read), markAsReadPendingIntent).build();
         notifBuilder.addAction(markAsReadActionBuilder);
 
-        final String selfId = conversation.mSelfParticipantId;
+        if (otp != null) {
+            final PendingIntent copyOtpIntent =
+                    UIIntents.get().getPendingIntentForCopyingOTP(context, conversationId, otp);
+            final NotificationCompat.Action copyOtpActionBuilder =
+                    new NotificationCompat.Action.Builder(0,
+                            "Copy OTP", copyOtpIntent).build();
+            notifBuilder.addAction(copyOtpActionBuilder);
+        }
+        else {
+            final String selfId = conversation.mSelfParticipantId;
 
-        final boolean requiresMms =
-                MmsSmsUtils.getRequireMmsForEmailAddress(
-                        conversation.mIncludeEmailAddress, conversation.mSubId) ||
-                        (conversation.mIsGroup && MmsUtils.groupMmsEnabled(conversation.mSubId));
+            final boolean requiresMms =
+                    MmsSmsUtils.getRequireMmsForEmailAddress(
+                            conversation.mIncludeEmailAddress, conversation.mSubId) ||
+                            (conversation.mIsGroup && MmsUtils.groupMmsEnabled(conversation.mSubId));
 
-        final int requestCode = state.getReplyIntentRequestCode();
-        final PendingIntent replyPendingIntent = UIIntents.get()
-                .getPendingIntentForSendingMessageToConversation(context,
-                        conversationId, selfId, requiresMms, requestCode);
+            final int requestCode = state.getReplyIntentRequestCode();
+            final PendingIntent replyPendingIntent = UIIntents.get()
+                    .getPendingIntentForSendingMessageToConversation(context,
+                            conversationId, selfId, requiresMms, requestCode);
 
-        final NotificationCompat.Action.Builder replyActionBuilder =
-                new NotificationCompat.Action.Builder(0,
-                        context.getString(R.string.notification_reply_prompt), replyPendingIntent);
-        final RemoteInput remoteInput = new RemoteInput.Builder(Intent.EXTRA_TEXT).setLabel(
-                        context.getString(R.string.notification_reply_prompt))
-                .build();
-        replyActionBuilder.addRemoteInput(remoteInput);
-        notifBuilder.addAction(replyActionBuilder.build());
+            final NotificationCompat.Action.Builder replyActionBuilder =
+                    new NotificationCompat.Action.Builder(0,
+                            context.getString(R.string.notification_reply_prompt), replyPendingIntent);
+            final RemoteInput remoteInput = new RemoteInput.Builder(Intent.EXTRA_TEXT).setLabel(
+                            context.getString(R.string.notification_reply_prompt))
+                    .build();
+            replyActionBuilder.addRemoteInput(remoteInput);
+            notifBuilder.addAction(replyActionBuilder.build());
+        }
 
         final String messageId = conversation.getLatestMessageId();
         if (conversation.getDoesLatestMessageNeedDownload() && messageId != null
