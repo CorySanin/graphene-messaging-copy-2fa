@@ -7,6 +7,9 @@ on:
     branches:
       - 2fa-tap
 
+env:
+  APK_NAME: ./${{ github.event.repository.name }}.apk
+
 jobs:
   gradle:
     runs-on: ubuntu-latest
@@ -31,7 +34,7 @@ jobs:
       run: |
         ./gradlew assembleRelease
 
-    - uses: ilharp/sign-android-release@v2 # Or use @nightly
+    - uses: ilharp/sign-android-release@v2
       name: Sign app APK
       id: sign_app
       with:
@@ -42,11 +45,13 @@ jobs:
         keyPassword: ${{ secrets.KEYPASSWORD }}
         buildToolsVersion: 36.0.0
 
+    - name: Rename APK
+      run: mv "${{steps.sign_app.outputs.signedFile}}" "${{ env.APK_NAME }}"
+
     - name: Publish version
       if: github.ref_type == 'tag'
       uses: softprops/action-gh-release@v3
       with:
         tag_name: ${{ github.ref_name }}
         name: ${{ github.ref_name }}
-        draft: true
-        files: ${{steps.sign_app.outputs.signedFile}}
+        files: ${{ env.APK_NAME }}
