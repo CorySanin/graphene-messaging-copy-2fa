@@ -6,6 +6,7 @@ import android.view.textclassifier.TextClassificationManager
 import android.view.textclassifier.TextClassifier
 import android.view.textclassifier.TextLinks
 import com.android.messaging.ui.conversation.messages.model.text.ConversationTextLink
+import com.android.messaging.ui.conversation.messages.model.text.ConversationTextLinkKind
 import com.android.messaging.ui.conversation.messages.ui.text.extractConversationTextLinks
 import io.mockk.CapturingSlot
 import io.mockk.every
@@ -68,24 +69,93 @@ internal class ConversationMessageTextLinkExtractorTest {
                     start = emailRange.first,
                     end = emailRange.last + 1,
                     url = "mailto:${Uri.encode("a@b.com")}",
+                    kind = ConversationTextLinkKind.Email,
+                    originalText = text.substring(emailRange),
                 ),
                 ConversationTextLink(
                     start = phoneRange.first,
                     end = phoneRange.last + 1,
                     url = "tel:${Uri.encode("+15551212")}",
+                    kind = ConversationTextLinkKind.Phone,
+                    originalText = text.substring(phoneRange),
                 ),
                 ConversationTextLink(
                     start = urlRange.first,
                     end = urlRange.last + 1,
                     url = "https://example.com/a",
+                    kind = ConversationTextLinkKind.Web,
+                    originalText = text.substring(urlRange),
                 ),
                 ConversationTextLink(
                     start = addressRange.first,
                     end = addressRange.last + 1,
                     url = "geo:0,0?q=${Uri.encode("1 Main St")}",
+                    kind = ConversationTextLinkKind.Address,
+                    originalText = text.substring(addressRange),
                 ),
             ),
             result,
+        )
+    }
+
+    @Test
+    fun extractConversationTextLinks_keepsUrlQueryAndFragment() {
+        val url = "https://drive.proton.me/urls/ABC123?share=1#Secret-Key_42"
+        val text = "Shared folder: $url"
+        val urlRange = text.rangeOf(url)
+        val context = createContextWithClassifier(
+            textLinks = buildTextLinks(
+                text = text,
+                LinkSpec(range = urlRange, entityType = TextClassifier.TYPE_URL),
+            ),
+        )
+
+        val result = extractConversationTextLinks(
+            context = context,
+            text = text,
+        )
+
+        assertEquals(
+            listOf(
+                ConversationTextLink(
+                    start = urlRange.first,
+                    end = urlRange.last + 1,
+                    url = url,
+                    kind = ConversationTextLinkKind.Web,
+                    originalText = text.substring(urlRange),
+                ),
+            ),
+            result,
+        )
+    }
+
+    @Test
+    fun extractConversationTextLinks_normalizesWebUrlSchemes() {
+        val text = "See example.com/a#b, HTTPS://Example.com/B#C or ftp://files.example.com/d"
+        val schemelessRange = text.rangeOf("example.com/a#b")
+        val uppercaseRange = text.rangeOf("HTTPS://Example.com/B#C")
+        val ftpRange = text.rangeOf("ftp://files.example.com/d")
+        val context = createContextWithClassifier(
+            textLinks = buildTextLinks(
+                text = text,
+                LinkSpec(range = schemelessRange, entityType = TextClassifier.TYPE_URL),
+                LinkSpec(range = uppercaseRange, entityType = TextClassifier.TYPE_URL),
+                LinkSpec(range = ftpRange, entityType = TextClassifier.TYPE_URL),
+            ),
+        )
+
+        val result = extractConversationTextLinks(
+            context = context,
+            text = text,
+        )
+
+        assertEquals(
+            listOf(
+                "http://example.com/a#b",
+                "https://Example.com/B#C",
+                "ftp://files.example.com/d",
+            ),
+            result.map { it.url },
         )
     }
 
@@ -114,6 +184,8 @@ internal class ConversationMessageTextLinkExtractorTest {
                     start = validRange.first,
                     end = validRange.last + 1,
                     url = "tel:${Uri.encode("ok")}",
+                    kind = ConversationTextLinkKind.Phone,
+                    originalText = text.substring(validRange),
                 ),
             ),
             result,

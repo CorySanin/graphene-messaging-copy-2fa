@@ -29,6 +29,11 @@ internal sealed interface ConversationScreenEffect {
         val uri: String,
     ) : ConversationScreenEffect
 
+    data class CopyToClipboard(
+        val label: String,
+        val text: String,
+    ) : ConversationScreenEffect
+
     data class PlacePhoneCall(
         val phoneNumber: String,
     ) : ConversationScreenEffect

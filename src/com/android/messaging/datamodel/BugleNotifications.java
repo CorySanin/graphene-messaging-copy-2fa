@@ -48,8 +48,6 @@ import com.android.messaging.datamodel.action.MarkAsReadAction;
 import com.android.messaging.datamodel.action.MarkAsSeenAction;
 import com.android.messaging.datamodel.action.RedownloadMmsAction;
 import com.android.messaging.datamodel.data.ConversationListItemData;
-import com.android.messaging.datamodel.media.AvatarGroupRequestDescriptor;
-import com.android.messaging.datamodel.media.AvatarRequestDescriptor;
 import com.android.messaging.datamodel.media.ImageRequestDescriptor;
 import com.android.messaging.datamodel.media.ImageResource;
 import com.android.messaging.datamodel.media.MediaRequest;
@@ -57,10 +55,11 @@ import com.android.messaging.datamodel.media.MediaResourceManager;
 import com.android.messaging.datamodel.media.UriImageRequestDescriptor;
 import com.android.messaging.sms.MmsSmsUtils;
 import com.android.messaging.sms.MmsUtils;
+import com.android.messaging.sms.SmsDestinations;
 import com.android.messaging.ui.UIIntents;
 import com.android.messaging.ui.conversation.messages.model.text.ConversationTextLink;
+import com.android.messaging.ui.common.components.participant.ParticipantAvatarBitmaps;
 import com.android.messaging.util.Assert;
-import com.android.messaging.util.AvatarUriUtil;
 import com.android.messaging.util.LogUtil;
 import com.android.messaging.util.NotificationChannelUtil;
 import com.android.messaging.util.OsUtil;
@@ -459,6 +458,13 @@ public class BugleNotifications {
     }
 
     @VisibleForTesting
+    static boolean canReplyFromNotification(final Conversation conversation) {
+        final String destination = conversation.mOtherParticipantDestination;
+        return destination == null
+                || SmsDestinations.canReplyToDestination(destination, conversation.mSubId);
+    }
+
+    @VisibleForTesting
     static void processAndSend(final MessageNotificationState state, final Conversation conversation) {
         final Context context = Factory.get().getApplicationContext();
         final String conversationId = conversation.mConversationId;
@@ -566,7 +572,7 @@ public class BugleNotifications {
                             "Copy OTP", copyOtpIntent).build();
             notifBuilder.addAction(copyOtpActionBuilder);
         }
-        else {
+        else if (canReplyFromNotification(conversation)) {
             final String selfId = conversation.mSelfParticipantId;
 
             final boolean requiresMms =
@@ -581,7 +587,8 @@ public class BugleNotifications {
 
             final NotificationCompat.Action.Builder replyActionBuilder =
                     new NotificationCompat.Action.Builder(0,
-                            context.getString(R.string.notification_reply_prompt), replyPendingIntent);
+                            context.getString(R.string.notification_reply_prompt),
+                            replyPendingIntent);
             final RemoteInput remoteInput = new RemoteInput.Builder(Intent.EXTRA_TEXT).setLabel(
                             context.getString(R.string.notification_reply_prompt))
                     .build();
@@ -682,41 +689,6 @@ public class BugleNotifications {
                 tag,
                 PendingIntentConstants.MSG_SEND_ERROR,
                 builder.build());
-    }
-
-    /**
-     * Gets a {@link Bitmap} for an avatar {@link Uri}.
-     * @param context {@link Context} for building the image request.
-     * @param avatarUri {@link Uri} for the avatar.
-     * @return The requested {@link Bitmap} and null if the request failed.
-     */
-    public static Bitmap getAvatarBitmap(Context context, Uri avatarUri) {
-        final int iconSize = (int) context.getResources()
-                .getDimension(R.dimen.contact_icon_view_normal_size);
-
-        ImageRequestDescriptor descriptor;
-        final String avatarType = AvatarUriUtil.getAvatarType(avatarUri);
-        if (AvatarUriUtil.TYPE_GROUP_URI.equals(avatarType)) {
-            descriptor = new AvatarGroupRequestDescriptor(avatarUri, iconSize, iconSize);
-        } else {
-            descriptor = new AvatarRequestDescriptor(avatarUri, iconSize, iconSize, true);
-        }
-
-        final MediaRequest<ImageResource> imageRequest = descriptor.buildSyncMediaRequest(
-                context);
-        final ImageResource avatarImage =
-                MediaResourceManager.get().requestMediaResourceSync(imageRequest);
-
-        if (avatarImage != null) {
-            // We have to make copies of the bitmaps to hand to the NotificationManager
-            // because the bitmap in the ImageResource is managed and will automatically
-            // get released.
-            Bitmap shareableAvatarBitmap = Bitmap.createBitmap(avatarImage.getBitmap());
-            avatarImage.release();
-            return shareableAvatarBitmap;
-        }
-
-        return null;
     }
 
     /**
@@ -855,17 +827,11 @@ public class BugleNotifications {
     }
 
     private static Person createGroupPerson(Context context, Conversation conversation) {
-        Person.Builder personBuilder = new Person.Builder()
+        return new Person.Builder()
                 .setName(conversation.getTitle())
-                .setKey(conversation.mConversationId);
-
-        if (conversation.mIconUri != null) {
-            Bitmap groupIconBitmap = getAvatarBitmap(context, Uri.parse(conversation.mIconUri));
-            if (groupIconBitmap != null) {
-                personBuilder.setIcon(IconCompat.createWithBitmap(groupIconBitmap));
-            }
-        }
-
-        return personBuilder.build();
+                .setKey(conversation.mConversationId)
+                .setIcon(IconCompat.createWithBitmap(
+                        ParticipantAvatarBitmaps.createGroupAvatarBitmap(context)))
+                .build();
     }
 }

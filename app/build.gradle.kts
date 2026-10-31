@@ -55,8 +55,8 @@ android {
 
     defaultConfig {
         applicationId = "dev.sanin.android.messaging"
-        versionCode = 20000000 + 16
-        versionName = "16"
+        versionCode = 20000000 + 18
+        versionName = "18"
         minSdk = 36
         targetSdk = 37
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -215,6 +215,7 @@ dependencies {
 
     implementation(libs.coil.compose)
     implementation(libs.coil.gif)
+    implementation(libs.coil.network.okhttp)
     implementation(libs.glide)
 
     implementation(libs.hilt.android)
@@ -228,7 +229,6 @@ dependencies {
 
     implementation(libs.libphonenumber)
 
-    implementation(project(":lib:platform_frameworks_opt_chips"))
     implementation(project(":lib:platform_frameworks_opt_vcard"))
 
     debugImplementation(libs.androidx.compose.ui.test.manifest)

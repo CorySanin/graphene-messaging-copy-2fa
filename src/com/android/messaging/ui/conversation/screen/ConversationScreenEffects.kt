@@ -1,6 +1,8 @@
 package com.android.messaging.ui.conversation.screen
 
 import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Point
@@ -138,6 +140,7 @@ private suspend fun ConversationScreenModel.handleConversationScreenEffect(
         is ConversationScreenEffect.ShowParticipantContactCard,
         is ConversationScreenEffect.AddParticipantContact,
         is ConversationScreenEffect.ShowSaveAttachmentsResult,
+        is ConversationScreenEffect.CopyToClipboard
         -> {
             handleImmediateConversationScreenEffect(
                 context = context,
@@ -175,6 +178,11 @@ private fun handleImmediateConversationScreenEffect(
                 context = context,
                 uri = effect.uri,
             )
+        }
+
+        is ConversationScreenEffect.CopyToClipboard -> {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText(effect.label, effect.text))
         }
 
         is ConversationScreenEffect.PlacePhoneCall -> {
